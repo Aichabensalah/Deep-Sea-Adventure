@@ -40,9 +40,10 @@ class Case :
   "changer le contenu d'une case"
 
   def poser_contenu(self, contenu: Union[PileJeton, JetonRuine]) -> None:
-    if not isinstance(contenu, (JetonRuine, PileJeton)):
-        raise CaseError("Le contenu doit être un JetonRuine ou une PileJeton.")
-    self._contenu = contenu
+      if not isinstance(contenu, (JetonRuine, PileJeton)):
+          raise CaseError("Le contenu doit être un JetonRuine ou une PileJeton.")
+      self._contenu = contenu
+      self._jeton_blanc = False
 
   def retirer_contenu(self) :
     contenu = self._contenu

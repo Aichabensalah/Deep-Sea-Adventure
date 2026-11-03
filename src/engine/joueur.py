@@ -1,5 +1,7 @@
 from __future__ import annotations
 import random
+from typing import TYPE_CHECKING
+
 from .Jeton import JetonRuine, PileJeton
 from .plateau import Plateau, Case
 from .exception import (
@@ -9,6 +11,9 @@ from .exception import (
     CaseError,
 )
 
+if TYPE_CHECKING:
+    from .manche import Manche
+
 "classe pour regrouper toutes les attributs et méthodes qui vont aider à la création d'un joueur"
 
 class Joueur: #joueur humain
@@ -16,8 +21,8 @@ class Joueur: #joueur humain
     def __init__(self, couleur: str) -> None:
         self._couleur = couleur
         self._position = 0
-        self._tresor_manche: list[JetonRuine] = []
-        self._tresor_valise: list[JetonRuine] = []
+        self._tresor_manche: list[JetonRuine | PileJeton] = []
+        self._tresor_valise: list[JetonRuine | PileJeton] = []
         self._direction = 1
         self._en_vie = True
         self._nb_changement_direction_par_manche = 0
@@ -160,31 +165,29 @@ class Joueur: #joueur humain
         if num_jeton < 0 or num_jeton >= len(self._tresor_manche):
             raise JoueurError("Indice de trésor invalide.")
 
-        jeton = self._tresor_manche.pop(num_jeton)
+        # Le dépôt est autorisé uniquement sur une case blanche
+        if not case.contient_jeton_blanc():
+            raise JoueurError("Le dépôt est autorisé uniquement sur une case blanche.")
+
+        jeton = self._tresor_manche[num_jeton]
+
+        # Vérification du type de trésor
+        if not isinstance(jeton, (JetonRuine, PileJeton)):
+            raise JoueurError("Type de trésor invalide.")
+
+        # On vérifie d'abord que la case est vide
+        if case.contient_jeton():
+            raise JoueurError("La case contient déjà un trésor.")
+
+        # Case vide alors on pose simplement le jeton
+        case.poser_contenu(jeton)
 
         #Si on est sur un jeton blanc, on le retire
-        if case.contient_jeton_blanc():
-            case.retirer_jeton_blanc()
+        case.retirer_jeton_blanc()
 
-        if not case.contient_jeton():
-            # Case vide alors on pose simplement le jeton
-            case.poser_contenu(jeton)
-        else:
-            contenu = case.contenu
-            if isinstance(contenu, JetonRuine):
-                #on transforme en pile
-                pile = PileJeton([contenu, jeton])
-                case.poser_contenu(pile)
-            else:
-                #déjà une pile
-                if contenu.peut_ajouter():
-                    contenu.ajouter_jeton(jeton)
-                else:
-                    # pile pleine alors on remet le jeton au joueur
-                    self._tresor_manche.append(jeton)
-                    raise PileCompleteError("La pile est complète.")
-
-
+        # On retire le trésor du joueur après le dépôt
+        self._tresor_manche.pop(num_jeton)
+    
     def deposer_tous_au_sous_marin(self):
         self._tresor_valise.extend(self._tresor_manche)
         self._tresor_manche.clear()
@@ -215,11 +218,11 @@ class Joueur: #joueur humain
         return self._position
 
     @property
-    def tresor_manche(self) -> list[JetonRuine]:
+    def tresor_manche(self) -> list[JetonRuine | PileJeton]:
         return self._tresor_manche
 
     @property
-    def tresor_valise(self) -> list[JetonRuine]:
+    def tresor_valise(self) -> list[JetonRuine | PileJeton]:
         return self._tresor_valise
 
     @property
@@ -269,18 +272,71 @@ class JoueurIA(Joueur): #joueur IA
         pos = self.position
         charge = len(self.tresor_manche)
 
+        # On ne change pas de direction si on remonte déjà
+        if self.direction == -1:
+            return False
+
+        # On ne change pas de direction si on l'a déjà fait
+        if self.nb_changement_direction_par_manche >= 1:
+            return False
+
+        # On évite de remonter immédiatement au début
+        if pos <= 1:
+            return False
+
+        # Estimation approximative du retour selon la charge
+        distance_retour = pos * (1 + charge / 3)
+
         if self._niveau == "facile":
-            return random.random() < 0.15
+            # L'IA facile prend en compte l'oxygène, sa position et sa charge
+            # mais elle anticipe moins bien le trajet de retour
+
+            if oxy <= 5 + charge:
+                return True
+
+            if pos >= 10:
+                return True
+
+            if charge >= 3 and pos >= 5:
+                return True
+
+            if pos >= 6 and charge >= 1:
+                return random.random() < 0.65
+
+            return False
 
         if self._niveau == "medium":
-            if oxy <= 4 + charge:
+            # L'IA medium adapte sa décision à sa charge
+            if oxy <= distance_retour + 3:
                 return True
-            return random.random() < 0.1
+
+            if charge >= 3 and pos >= 5:
+                return True
+
+            if pos >= 10:
+                return random.random() < 0.65
+
+            if pos >= 6 and charge >= 1:
+                return random.random() < 0.35
+
+            return False
 
         if self._niveau == "expert":
-            distance = pos
-            if oxy <= distance + charge + 1:
+            # L'IA experte anticipe son retour
+            marge_securite = 4 + charge
+
+            if oxy <= distance_retour + marge_securite:
                 return True
+
+            if charge >= 4:
+                return True
+
+            if pos >= 12 and charge >= 2:
+                return True
+
+            if pos >= 16:
+                return True
+
             return False
 
         return False
@@ -291,34 +347,76 @@ class JoueurIA(Joueur): #joueur IA
         contenu = case.contenu
 
         # Si la case n'a rien (ou seulement jeton blanc), l'IA ne ramasse pas
-        if contenu is None:
+        if not isinstance(contenu, (JetonRuine, PileJeton)):
             return False
 
         # Cas du Jeton simple
         if isinstance(contenu, JetonRuine):
-            niveau = contenu.niveau     # 1 à 4
+            niveau = contenu.niveau
+            nb_jetons = 1
         else:
-            #dans une pile regarde le niveau du jeton du dessus 
+            #dans une pile regarde le niveau du jeton du dessus
+            # On prend aussi en compte le nombre de jetons de la pile
             niveau = contenu.jetons[-1].niveau
+            nb_jetons = len(contenu.jetons)
 
-        
+        charge = len(self.tresor_manche)
+        pos = self.position
+
         if self._niveau == "facile":
-            return True
+            # L'IA facile privilégie les trésors de niveau élevé
+            # mais ne prend pas toujours la meilleure décision
 
-        
-        if self._niveau == "medium":
-            return niveau >= 2   # évite les triangles
-
-        
-        if self._niveau == "expert":
-            #si le jeton est loin et que c'est trop bas, le joueur évite
-            if niveau == 1 and self.position > 6:
+            if charge >= 4:
                 return False
-            #sinon ramasse si >= carré
-            return niveau >= 2
 
-        return True
+            if niveau >= 3:
+                return True
 
+            if nb_jetons >= 2:
+                return True
+
+            if niveau == 2:
+                return charge <= 2
+
+            if niveau == 1:
+                return charge == 0 and pos <= 5
+
+            return False
+
+        if self._niveau == "medium":
+            # L'IA medium privilégie les trésors intéressants
+            if charge >= 4:
+                return False
+
+            if niveau >= 3:
+                return True
+
+            if nb_jetons >= 2:
+                return True
+
+            if niveau == 2:
+                return random.random() < 0.60
+
+            return charge <= 1 and random.random() < 0.30
+
+        if self._niveau == "expert":
+            # L'IA experte compare le gain potentiel au risque
+            if charge >= 4:
+                return False
+
+            if niveau == 4 or nb_jetons >= 3:
+                return True
+
+            if niveau >= 3 and charge <= 2:
+                return True
+
+            if niveau == 2 and charge <= 1 and pos <= 8:
+                return True
+
+            return False
+
+        return False
 
     "déposer"
 
@@ -327,24 +425,58 @@ class JoueurIA(Joueur): #joueur IA
         if not self.tresor_manche:
             return None
 
+        # On utilise uniquement les niveaux visibles, jamais les valeurs réelles
+        niveaux = []
+
+        for t in self.tresor_manche:
+            if isinstance(t, JetonRuine):
+                niveaux.append(t.niveau)
+
+            elif isinstance(t, PileJeton):
+                # Une pile est évaluée selon ses niveaux visibles
+                niveaux.append(sum(j.niveau for j in t.jetons))
+
+            else:
+                niveaux.append(float("inf"))
+
+        # Une pile ou un jeton est considéré comme un seul trésor transporté
+        charge = len(self.tresor_manche)
+
+        # On cherche le trésor le moins intéressant selon les niveaux
+        indice_moins_interessant = niveaux.index(min(niveaux))
+
         if self._niveau == "facile":
-            if random.random() < 0.20:
-                return random.randint(0, len(self.tresor_manche) - 1)
+            # L'IA facile dépose un trésor peu intéressant
+            # lorsqu'elle commence à être trop chargée
+
+            if charge >= 3 and min(niveaux) <= 2:
+                return indice_moins_interessant
+
+            if manche.oxygene <= 5 and charge >= 2:
+                return indice_moins_interessant
+
             return None
 
         if self._niveau == "medium":
-            valeurs = [t.valeur for t in self.tresor_manche]
-            mini = min(valeurs)
-            if mini <= 1:
-                return valeurs.index(mini)
+            # L'IA medium dépose surtout les trésors peu intéressants
+            if charge >= 3 and min(niveaux) <= 2:
+                return indice_moins_interessant
+
+            if manche.oxygene <= 6 and charge >= 3:
+                return indice_moins_interessant
+
             return None
 
         if self._niveau == "expert":
-            valeurs = [t.valeur for t in self.tresor_manche]
-            if manche.oxygene <= len(self.tresor_manche) * 2:
-                return valeurs.index(min(valeurs))
+            # L'IA experte réduit sa charge lorsque le retour devient risqué
+            distance_retour = self.position * (1 + charge / 3)
+
+            if manche.oxygene <= distance_retour + 3 and charge >= 2:
+                return indice_moins_interessant
+
+            if charge >= 4 and min(niveaux) <= 3:
+                return indice_moins_interessant
 
             return None
 
         return None
-
