@@ -1,61 +1,131 @@
-# 🐠 Deep Sea Adventure – Projet Python / Pygame
 
-## 🎮 Présentation
+# 🌊 Deep Sea Adventure
 
-Ce projet est une adaptation du jeu *Deep Sea Adventure*, réalisée en Python avec Pygame.
-Le joueur incarne un plongeur qui explore les profondeurs pour récupérer des trésors, tout en gérant :
+Jeu de stratégie développé en **Python avec Pygame**, inspiré du jeu de société *Deep Sea Adventure*.
 
-* l’oxygène commun,
-* les risques de noyade,
-* le ramassage et dépôt de trésors,
-* le resserrage du plateau entre les manches,
-* les piles de trésors en fin de manche,
-* la gestion des joueurs humains et IA.
+Les joueurs explorent les profondeurs pour récupérer des trésors. Mais l'oxygène est partagé, et chaque trésor transporté rend le retour plus difficile !
 
-Le jeu propose :
+## 🎮 Aperçu du jeu
 
-* une interface graphique complète,
-* plusieurs joueurs (humains et IA),
-* 3 manches successives,
-* un écran de résultats final.
+### Menu principal
+![Menu principal](images/menu.png)
 
----
+### Configuration des joueurs
+![Configuration](images/configuration.png)
 
-## 🛠️ Installation
+### Plateau initial
+![Plateau initial](images/plateau.png)
 
-### 1) Cloner le dépôt
+### Partie en cours
+![Partie en cours](images/partie.png)
+
+## ✨ Fonctionnalités
+
+- Interface graphique interactive avec Pygame
+- Joueurs humains et adversaires virtuels
+- Trois niveaux d'IA : facile, medium et expert
+- Déplacements et changements de direction
+- Ramassage et dépôt de trésors, y compris des piles
+- Gestion de l'oxygène partagé
+- Suivi des trésors transportés
+- Moteur de jeu orienté objet
+
+## 🧭 Règles du jeu
+
+Le but est de rapporter un maximum de trésors au sous-marin.
+
+1. Les joueurs lancent les dés pour avancer.
+2. Ils peuvent ramasser des trésors sur leur case.
+3. Les trésors transportés ralentissent les déplacements et consomment de l'oxygène.
+4. Chaque joueur doit choisir le bon moment pour faire demi-tour.
+5. Les trésors rapportés au sous-marin permettent de marquer des points.
+
+Les trésors sont répartis en quatre niveaux : triangle, carré, pentagone et hexagone.
+
+## 🤖 Intelligence artificielle
+
+| Difficulté | Stratégie |
+|---|---|
+| Facile | Décisions simples selon la charge et la position |
+| Medium | Meilleure prise en compte de l'oxygène et du retour |
+| Expert | Anticipation plus prudente des risques et sélection des trésors |
+
+Les IA utilisent les informations visibles, sans consulter les valeurs cachées des trésors.
+
+## 🛠️ Technologies
+
+- Python
+- Pygame
+- Programmation orientée objet
+- Algorithmique et heuristiques de décision
+
+## 🚀 Installation
+
+### Cloner le projet
 
 ```bash
-git clone <URL_DU_REPO>
+git clone <URL_DU_DEPOT>
 cd deepsea
 ```
 
-### 2) Installer les dépendances
-
-Le jeu utilise **Pygame**.
-Installe-le avec :
+### Créer un environnement virtuel
 
 ```bash
-pip install pygame
+python -m venv .venv
 ```
 
----
+Sur Windows (PowerShell) :
 
-## ▶️ Lancer le jeu
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
 
-**IMPORTANT :** il faut lancer le jeu via le module Python, sinon les imports relatifs ne fonctionnent pas.
+### Installer Pygame
 
-Dans un terminal placé dans la **racine du projet**, exécuter :
+```bash
+python -m pip install pygame
+```
+
+### Lancer le jeu
 
 ```bash
 python -m src.interface.interface
 ```
 
-✔ Ceci lance le menu principal
-✔ Vous pouvez ensuite configurer les joueurs et démarrer une partie
+## 📁 Structure du projet
+
+```text
+deepsea/
+├── assets/
+├── images/
+│   ├── menu.png
+│   ├── configuration.png
+│   ├── plateau.png
+│   └── partie.png
+├── src/
+│   ├── engine/
+│   │   ├── exception.py
+│   │   ├── Jeton.py
+│   │   ├── joueur.py
+│   │   ├── manche.py
+│   │   ├── partie.py
+│   │   └── plateau.py
+│   ├── interface/
+│   │   ├── bouton.py
+│   │   ├── interface.py
+│   │   └── jeu.py
+│   └── test.py
+└── README.md
+```
+
+## 🎯 Objectifs
+
+- Concevoir un moteur de jeu modulaire
+- Appliquer la programmation orientée objet
+- Développer une interface graphique
+- Implémenter plusieurs stratégies d'intelligence artificielle
+- Gérer les interactions entre joueurs et environnement
 
 ---
-
-
 
 
